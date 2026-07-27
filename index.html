@@ -1,769 +1,255 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-    <title>🌤️ 聚合天气 · 自适应移动/桌面</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        :root {
-            --bg-light: #f0f4f8;
-            --card-bg: rgba(255, 255, 255, 0.8);
-            --primary-dark: #1e3c72;
-            --primary-light: #2a5298;
-            --text-dark: #0a2540;
-            --text-soft: #2c3e50;
-            --border-soft: #e6edf5;
-            --shadow-sm: 0 8px 20px rgba(0,20,50,0.1);
-        }
-
-        body {
-            background: var(--bg-light);
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 0.8rem;
-        }
-
-        .weather-app {
-            max-width: 1400px;
-            width: 100%;
-        }
-
-        /* 头部自适应：移动端堆叠，PC端行内 */
-        header {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        @media (min-width: 640px) {
-            header {
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
-            }
-        }
-
-        .title h1 {
-            font-size: 1.8rem;
-            line-height: 1.2;
-            background: linear-gradient(145deg, var(--primary-dark), var(--primary-light));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .badge {
-            background: #2c3e50;
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            display: inline-block;
-            margin-top: 0.2rem;
-        }
-
-        /* 搜索栏：手机全宽，内部flex换行 */
-        .search-panel {
-            background: white;
-            border-radius: 40px;
-            padding: 0.4rem;
-            box-shadow: var(--shadow-sm);
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.4rem;
-            width: 100%;
-        }
-
-        .search-panel input,
-        .search-panel select {
-            border: none;
-            padding: 0.7rem 1rem;
-            font-size: 1rem;
-            border-radius: 40px;
-            background: #f8fafd;
-            outline: none;
-            flex: 1 1 150px;
-            min-width: 140px;
-        }
-
-        .search-panel button {
-            background: var(--primary-dark);
-            border: none;
-            color: white;
-            padding: 0.7rem 1.5rem;
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.2s;
-            white-space: nowrap;
-            flex: 1 0 auto;
-            border: 1px solid #ffffff30;
-            box-shadow: 0 4px 8px rgba(0,40,80,0.2);
-        }
-
-        .search-panel button:hover {
-            background: var(--primary-light);
-        }
-
-        .status-msg {
-            background: #d4edda;
-            color: #155724;
-            padding: 0.8rem 1.2rem;
-            border-radius: 40px;
-            font-weight: 500;
-            border-left: 5px solid #28a745;
-            margin: 1rem 0;
-            word-break: break-word;
-        }
-
-        .error-msg {
-            background: #f8d7da;
-            color: #721c24;
-            border-left-color: #dc3545;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #ccc;
-            border-top-color: #1e3c72;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* 卡片通用 */
-        .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(8px);
-            border-radius: 2rem;
-            padding: 1.5rem 1.2rem;
-            box-shadow: 0 20px 40px -12px rgba(0,32,64,0.25);
-            border: 1px solid rgba(255,255,255,0.6);
-            margin-bottom: 1.5rem;
-        }
-
-        .card h2 {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 600;
-            font-size: 1.5rem;
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            color: var(--text-dark);
-            border-bottom: 2px solid var(--border-soft);
-            padding-bottom: 0.6rem;
-            flex-wrap: wrap;
-        }
-
-        /* 当前实况网格: 移动2列，平板3列，桌面自动 */
-        .now-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-        }
-
-        @media (min-width: 600px) {
-            .now-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (min-width: 1024px) {
-            .now-grid {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            }
-        }
-
-        .metric {
-            background: #ffffffd9;
-            border-radius: 1.5rem;
-            padding: 1rem 1.2rem;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
-            border: 1px solid #f0f5fa;
-        }
-
-        .metric .label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            color: #527a9b;
-            margin-bottom: 0.3rem;
-        }
-
-        .metric .value {
-            font-size: 1.6rem;
-            font-weight: 600;
-            color: #0b2b40;
-            line-height: 1.2;
-            word-break: break-word;
-        }
-
-        .metric .sub {
-            font-size: 0.85rem;
-            color: #3c5e7a;
-            margin-top: 0.3rem;
-        }
-
-        /* 污染物标签组 */
-        .pollutants {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.8rem;
-        }
-
-        .pill {
-            background: #e9f0f9;
-            border-radius: 40px;
-            padding: 0.3rem 1.2rem;
-            font-weight: 500;
-            color: #103456;
-            font-size: 0.9rem;
-            white-space: nowrap;
-        }
-
-        /* 预报卡片横向滚动 (保持移动端可滑动) */
-        .forecast-cards {
-            display: flex;
-            gap: 0.8rem;
-            overflow-x: auto;
-            padding: 0.5rem 0 1.5rem 0;
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .forecast-card {
-            flex: 0 0 auto;
-            width: 110px;
-            background: white;
-            border-radius: 1.5rem;
-            padding: 1rem 0.5rem;
-            text-align: center;
-            border: 1px solid #dde7f0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-        }
-
-        @media (min-width: 800px) {
-            .forecast-card {
-                width: 130px;
-            }
-        }
-
-        .forecast-card .day {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .forecast-card .temp {
-            font-size: 1.3rem;
-            font-weight: 650;
-            margin: 0.3rem 0;
-        }
-
-        /* 逐小时图表容器 */
-        .hourly-chart-wrapper {
-            width: 100%;
-            margin-top: 1rem;
-        }
-
-        #hourly-chart {
-            width: 100%;
-            height: 280px;
-        }
-
-        @media (min-width: 700px) {
-            #hourly-chart {
-                height: 350px;
-            }
-        }
-
-        .chart-toggle {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 1rem 0;
-        }
-
-        .chart-btn {
-            background: #f0f6fd;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 40px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #2c3e50;
-            border: 1px solid #d0e0f0;
-            font-weight: 500;
-            flex: 0 1 auto;
-        }
-
-        .chart-btn.active {
-            background: #2a6f97;
-            color: white;
-            border-color: #1e4a6f;
-        }
-
-        /* 分钟级降水时间轴 */
-        .minutely-timeline {
-            overflow-x: auto;
-            padding: 1rem 0;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .minutely-bar-container {
-            display: flex;
-            gap: 4px;
-            min-width: max-content;
-        }
-
-        .minute-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 60px;
-        }
-
-        .minute-time {
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .minute-bar {
-            width: 28px;
-            border-radius: 12px 12px 6px 6px;
-            background: #7fcdbb;
-            margin: 5px 0;
-            transition: height 0.2s;
-        }
-
-        .minute-value {
-            font-size: 0.7rem;
-            background: #e9f0f9;
-            padding: 2px 4px;
-            border-radius: 20px;
-        }
-
-        /* 生活指数网格：移动1列，平板2列，桌面3列 */
-        .life-indices-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        @media (min-width: 600px) {
-            .life-indices-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (min-width: 1100px) {
-            .life-indices-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        .life-item {
-            background: white;
-            border-radius: 1.2rem;
-            padding: 1rem 1.2rem;
-            border-left: 5px solid #4f7aa6;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-        }
-
-        .life-item h4 {
-            margin: 0 0 0.4rem 0;
-            color: #1c3f5c;
-            font-size: 1.1rem;
-        }
-
-        .life-item .brief {
-            font-weight: 600;
-            color: #1e6120;
-            display: inline-block;
-            background: #e2f3e2;
-            padding: 0.2rem 1rem;
-            border-radius: 30px;
-            font-size: 0.9rem;
-        }
-
-        .advice {
-            color: #335e7e;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-            line-height: 1.4;
-        }
-
-        .footer-note {
-            text-align: center;
-            margin: 2rem 0 1rem;
-            color: #6c86a0;
-            font-size: 0.85rem;
-            padding: 0 0.5rem;
-        }
-
-        /* 通用隐藏 */
-        .hidden {
-            display: none;
-        }
-
-        /* 确保小屏文字不溢出 */
-        .city-name {
-            word-break: break-word;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简易消消乐（带音效）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#78c0e8;display:flex;flex-direction:column;align-items:center;padding:20px}
+#info{font-size:22px;margin-bottom:10px;color:#222}
+#gameBox{
+    display:grid;
+    grid-template-columns: repeat(7, 60px);
+    gap:4px;
+    background:rgba(0,0,0,0.2);
+    padding:6px;
+    border-radius:8px;
+}
+.cell{
+    width:60px;height:60px;
+    background:#fff;
+    border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:32px;
+    cursor:pointer;
+    user-select:none;
+    transition: transform 0.15s;
+}
+.cell.empty{background:transparent}
+.cell.selected{transform:scale(0.92);box-shadow:0 0 0 3px gold}
+</style>
 </head>
 <body>
-<div class="weather-app">
-    <header>
-        <div class="title">
-            <h1>⛅ 开源天气 · 免费聚合</h1>
-            <span class="badge">数据 uapis.cn · 全适配</span>
-        </div>
-        <div class="search-panel">
-            <input type="text" id="cityInput" placeholder="城市 (例: 北京, Tokyo)" value="北京">
-            <select id="langSelect">
-                <option value="zh" selected>中文 🇨🇳</option>
-                <option value="en">英文 🇬🇧</option>
-            </select>
-            <button id="fetchBtn">🔍 查询</button>
-        </div>
-    </header>
+<div id="info">分数：<span id="score">0</span></div>
+<div id="gameBox"></div>
 
-    <div id="statusMessage" class="status-msg hidden"></div>
-
-    <div class="dashboard" id="weatherDashboard" style="display: none;">
-        <!-- 当前实况 -->
-        <div class="card" id="currentCard">
-            <h2>📍 当前实况 · <span class="city-name" id="cityNameDisplay"></span></h2>
-            <div class="now-grid" id="currentGrid"></div>
-        </div>
-
-        <!-- 空气质量 -->
-        <div class="card" id="aqiCard" style="display: none;">
-            <h2>💨 空气质量 (扩展)</h2>
-            <div id="aqiContent"></div>
-        </div>
-
-        <!-- 多天预报 (横向滚动) -->
-        <div class="card" id="forecastCard" style="display: none;">
-            <h2>📅 未来7天预报</h2>
-            <div class="forecast-cards" id="forecastContainer"></div>
-            <div class="small-note" style="text-align:right;">← 滑动查看更多 →</div>
-        </div>
-
-        <!-- 逐小时预报 + ECharts -->
-        <div class="card" id="hourlyCard" style="display: none;">
-            <h2>⏳ 未来24小时趋势</h2>
-            <div class="hourly-chart-wrapper">
-                <div class="chart-toggle" id="chart-toggle-btns">
-                    <button class="chart-btn active" data-type="temp">🌡️ 温度</button>
-                    <button class="chart-btn" data-type="humidity">💧 湿度</button>
-                    <button class="chart-btn" data-type="wind">💨 风速</button>
-                    <button class="chart-btn" data-type="pop">☔ 降水概率</button>
-                    <button class="chart-btn" data-type="precip">🌧️ 降水量</button>
-                </div>
-                <div id="hourly-chart"></div>
-            </div>
-        </div>
-
-        <!-- 分钟级降水 (横向时间轴) -->
-        <div class="card" id="minutelyCard" style="display: none;">
-            <h2>🌧️ 分钟级降水 (2小时 · 每5分钟)</h2>
-            <div id="minutelyContent"></div>
-        </div>
-
-        <!-- 生活指数网格 -->
-        <div class="card" id="indicesCard" style="display: none;">
-            <h2>🧴 生活指数</h2>
-            <div class="life-indices-grid" id="indicesContainer"></div>
-        </div>
-    </div>
-
-    <div class="footer-note">
-        ⚡ 接口: uapis.cn · 完全免费 · 自适应手机/桌面 · 展示全部字段
-    </div>
-</div>
+<!-- 音效 -->
+<audio id="sndSelect" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3" preload="auto">
+<audio id="sndSwapFail" src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3" preload="auto">
+<audio id="sndMatch" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3" preload="auto">
+<audio id="sndChain" src="https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3" preload="auto">
 
 <script>
-    (function() {
-        // DOM 元素
-        const cityInput = document.getElementById('cityInput');
-        const langSelect = document.getElementById('langSelect');
-        const fetchBtn = document.getElementById('fetchBtn');
-        const statusDiv = document.getElementById('statusMessage');
-        const dashboard = document.getElementById('weatherDashboard');
+const COLS = 7;
+const ROWS = 7;
+const ITEMS = ['🐱','🐶','🐰','🦊','🐻','🐼'];
+let board = [];
+let selected = null;
+let score = 0;
+let isMoving = false;
+const gameBox = document.getElementById('gameBox');
+const scoreDom = document.getElementById('score');
 
-        const cityNameSpan = document.getElementById('cityNameDisplay');
-        const currentGrid = document.getElementById('currentGrid');
-        const aqiCard = document.getElementById('aqiCard');
-        const aqiContent = document.getElementById('aqiContent');
-        const forecastCard = document.getElementById('forecastCard');
-        const forecastContainer = document.getElementById('forecastContainer');
-        const hourlyCard = document.getElementById('hourlyCard');
-        const minutelyCard = document.getElementById('minutelyCard');
-        const minutelyContent = document.getElementById('minutelyContent');
-        const indicesCard = document.getElementById('indicesCard');
-        const indicesContainer = document.getElementById('indicesContainer');
+// 音效工具
+function playAudio(elId){
+    const audio = document.getElementById(elId);
+    audio.currentTime = 0;
+    audio.play().catch(e=>{});
+}
 
-        // 状态管理
-        function setStatus(msg, isError = false, isLoading = false) {
-            statusDiv.style.display = 'block';
-            statusDiv.innerHTML = isLoading ? `<span class="loading"></span> ${msg}` : msg;
-            statusDiv.classList.toggle('error-msg', isError);
+// 初始化棋盘
+function initBoard(){
+    board = [];
+    for(let y=0;y<ROWS;y++){
+        board[y] = [];
+        for(let x=0;x<COLS;x++){
+            board[y][x] = randomItem();
         }
-
-        function clearStatus() {
-            statusDiv.style.display = 'none';
-        }
-
-        function hideAllCards() {
-            aqiCard.style.display = 'none';
-            forecastCard.style.display = 'none';
-            hourlyCard.style.display = 'none';
-            minutelyCard.style.display = 'none';
-            indicesCard.style.display = 'none';
-        }
-
-        // 获取天气
-        async function fetchWeather() {
-            const city = cityInput.value.trim();
-            const lang = langSelect.value;
-
-            if (!city) {
-                setStatus('请输入城市名称', true);
-                return;
+    }
+    // 消除开局自带三消
+    while(hasMatch()){
+        for(let y=0;y<ROWS;y++){
+            for(let x=0;x<COLS;x++){
+                board[y][x] = randomItem();
             }
+        }
+    }
+    render();
+}
 
-            setStatus('获取天气数据中...', false, true);
-            dashboard.style.display = 'none';
-            hideAllCards();
+function randomItem(){
+    return ITEMS[Math.floor(Math.random()*ITEMS.length)];
+}
 
-            const url = `https://uapis.cn/api/v1/misc/weather?city=${encodeURIComponent(city)}&lang=${lang}&extended=true&forecast=true&hourly=true&minutely=true&indices=true`;
+// 渲染界面
+function render(){
+    gameBox.innerHTML = '';
+    for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+            const div = document.createElement('div');
+            div.className = 'cell';
+            if(board[y][x]) div.textContent = board[y][x];
+            else div.classList.add('empty');
+            div.dataset.x = x;
+            div.dataset.y = y;
+            if(selected && selected.x===x && selected.y===y){
+                div.classList.add('selected');
+            }
+            div.onclick = ()=>clickCell(x,y);
+            gameBox.appendChild(div);
+        }
+    }
+    scoreDom.textContent = score;
+}
 
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
+function clickCell(x,y){
+    if(isMoving) return;
+    playAudio("sndSelect");
+    if(!selected){
+        selected = {x,y};
+        render();
+    }else{
+        const dx = Math.abs(selected.x - x);
+        const dy = Math.abs(selected.y - y);
+        // 判断相邻上下左右
+        if((dx===1&&dy===0) || (dx===0&&dy===1)){
+            swap(selected.x, selected.y, x, y);
+        }
+        selected = null;
+        render();
+    }
+}
 
-                if (!response.ok) {
-                    let errorMsg = `请求失败 (${response.status})`;
-                    if (data?.message) errorMsg += `: ${data.message}`;
-                    throw new Error(errorMsg);
+// 交换两个格子
+async function swap(x1,y1,x2,y2){
+    isMoving = true;
+    [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]];
+    render();
+
+    if(hasMatch()){
+        await processMatches();
+    }else{
+        // 没有匹配，交换回来
+        playAudio("sndSwapFail");
+        await sleep(150);
+        [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]];
+        render();
+    }
+    isMoving = false;
+}
+
+// 查找所有需要消除的格子
+function findMatches(){
+    const matched = new Set();
+    // 横向
+    for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS-2;x++){
+            const v = board[y][x];
+            if(!v) continue;
+            if(v===board[y][x+1] && v===board[y][x+2]){
+                matched.add(`${x},${y}`);
+                matched.add(`${x+1},${y}`);
+                matched.add(`${x+2},${y}`);
+                let k = x+3;
+                while(k<COLS && board[y][k]===v){
+                    matched.add(`${k},${y}`);
+                    k++;
                 }
-
-                if (!data || typeof data !== 'object') throw new Error('数据格式错误');
-
-                renderAll(data, lang);
-                setStatus(`✅ 更新成功 · ${data.city || city}`, false, false);
-                dashboard.style.display = 'flex';
-                dashboard.style.flexDirection = 'column';
-            } catch (error) {
-                console.error(error);
-                setStatus(`❌ ${error.message}`, true);
-                dashboard.style.display = 'none';
             }
         }
-
-        function renderAll(data, lang) {
-            cityNameSpan.textContent = `${data.city || '--'}${data.province ? ' · ' + data.province : ''}`;
-
-            // 当前实况
-            let currentHtml = '';
-            currentHtml += createMetric('天气', data.weather || '--', '');
-            currentHtml += createMetric('温度', data.temperature != null ? `${data.temperature} °C` : '--', `体感 ${data.feels_like ?? '--'}°C`);
-            currentHtml += createMetric('风向/风力', `${data.wind_direction || '--'} ${data.wind_power || ''}`, '');
-            currentHtml += createMetric('湿度', data.humidity != null ? `${data.humidity} %` : '--', '');
-            currentHtml += createMetric('更新时间', data.report_time ? data.report_time.split(' ')[1] : '--', data.report_time || '');
-
-            if (data.visibility != null) currentHtml += createMetric('能见度', `${data.visibility} km`, '');
-            if (data.pressure != null) currentHtml += createMetric('气压', `${data.pressure} hPa`, '');
-            if (data.uv != null) currentHtml += createMetric('紫外线', data.uv, '');
-            if (data.precipitation != null) currentHtml += createMetric('降水量', `${data.precipitation} mm`, '');
-            if (data.cloud != null) currentHtml += createMetric('云量', `${data.cloud} %`, '');
-            if (data.temp_max != null) currentHtml += createMetric('今日最高', `${data.temp_max} °C`, `最低 ${data.temp_min ?? '--'} °C`);
-
-            currentGrid.innerHTML = currentHtml;
-
-            // 空气质量
-            if (data.aqi != null) {
-                aqiCard.style.display = 'block';
-                let aqiHtml = `<div class="metric" style="grid-column: span 2;"><span class="label">AQI · 等级</span>
-                    <div class="value">${data.aqi} · ${data.aqi_category || '--'}</div>
-                    <div class="sub">主要污染物: ${data.aqi_primary || '--'}</div>
-                </div>`;
-                if (data.air_pollutants) {
-                    const p = data.air_pollutants;
-                    aqiHtml += '<div class="pollutants">';
-                    if (p.pm25 != null) aqiHtml += `<span class="pill">PM2.5: ${p.pm25} μg</span>`;
-                    if (p.pm10 != null) aqiHtml += `<span class="pill">PM10: ${p.pm10} μg</span>`;
-                    if (p.o3 != null) aqiHtml += `<span class="pill">O₃: ${p.o3} μg</span>`;
-                    if (p.no2 != null) aqiHtml += `<span class="pill">NO₂: ${p.no2} μg</span>`;
-                    if (p.so2 != null) aqiHtml += `<span class="pill">SO₂: ${p.so2} μg</span>`;
-                    if (p.co != null) aqiHtml += `<span class="pill">CO: ${p.co} mg</span>`;
-                    aqiHtml += '</div>';
+    }
+    // 纵向
+    for(let x=0;x<COLS;x++){
+        for(let y=0;y<ROWS-2;y++){
+            const v = board[y][x];
+            if(!v) continue;
+            if(v===board[y+1][x] && v===board[y+2][x]){
+                matched.add(`${x},${y}`);
+                matched.add(`${x},${y+1}`);
+                matched.add(`${x},${y+2}`);
+                let k = y+3;
+                while(k<ROWS && board[k][x]===v){
+                    matched.add(`${x},${k}`);
+                    k++;
                 }
-                aqiContent.innerHTML = aqiHtml;
-            } else {
-                aqiCard.style.display = 'none';
             }
+        }
+    }
+    return matched;
+}
 
-            // 预报 (横向滚动卡片)
-            if (data.forecast && Array.isArray(data.forecast) && data.forecast.length) {
-                forecastCard.style.display = 'block';
-                const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-                let fcHtml = '';
+function hasMatch(){
+    return findMatches().size > 0;
+}
 
-                data.forecast.forEach((day) => {
-                    let shortDate = day.date ? day.date.slice(5) : '--';
-                    let weekLabel = '';
-                    if (day.date) {
-                        try {
-                            const d = new Date(day.date);
-                            if (!isNaN(d.getTime())) weekLabel = weekdays[d.getDay()];
-                        } catch { weekLabel = day.week || ''; }
+async function processMatches(){
+    let chainCount = 0;
+    let matched = findMatches();
+    while(matched.size>0){
+        chainCount++;
+        if(chainCount===1){
+            playAudio("sndMatch");
+        }else{
+            playAudio("sndChain");
+        }
+        // 计分+清空
+        score += matched.size * 10;
+        matched.forEach(key=>{
+            const [x,y] = key.split(',').map(Number);
+            board[y][x] = null;
+        });
+        render();
+        await sleep(200);
+
+        // 方块下落
+        dropBlocks();
+        render();
+        await sleep(150);
+
+        // 顶部生成新方块
+        fillEmpty();
+        render();
+        await sleep(150);
+
+        matched = findMatches();
+    }
+}
+
+// 方块下落
+function dropBlocks(){
+    for(let x=0;x<COLS;x++){
+        for(let y=ROWS-1;y>=0;y--){
+            if(board[y][x]===null){
+                // 向上寻找有内容的方块落下来
+                for(let k=y-1;k>=0;k--){
+                    if(board[k][x]){
+                        board[y][x] = board[k][x];
+                        board[k][x] = null;
+                        break;
                     }
-                    const icon = day.weather_day?.includes('晴') ? '☀️' :
-                                day.weather_day?.includes('云') ? '⛅' : '🌤️';
-                    fcHtml += `<div class="forecast-card">
-                        <div class="day">${shortDate}</div>
-                        <div style="font-size:0.8rem; color:#5f7d9c;">${weekLabel}</div>
-                        <div style="font-size:2rem;">${icon}</div>
-                        <div class="temp">${day.temp_max ?? '--'}°/${day.temp_min ?? '--'}°</div>
-                        <div style="font-size:0.8rem;">${day.weather_day || ''}</div>
-                    </div>`;
-                });
-
-                forecastContainer.innerHTML = fcHtml;
-            } else {
-                forecastCard.style.display = 'none';
-            }
-
-            // 逐小时 折线图 (复用之前逻辑，但使用自适应容器)
-            if (data.hourly_forecast?.length) {
-                hourlyCard.style.display = 'block';
-                const hourData = data.hourly_forecast.slice(0, 24);
-                const times = hourData.map(h => {
-                    if (!h.time) return '--:--';
-                    let match = h.time.match(/T(\d{2}:\d{2})/);
-                    return match ? match[1] : h.time.slice(11, 16);
-                });
-
-                const seriesMap = {
-                    temp: { name: '温度', data: hourData.map(h => h.temperature), color: '#e67e22', symbol: 'circle' },
-                    humidity: { name: '湿度', data: hourData.map(h => h.humidity), color: '#3498db', symbol: 'diamond' },
-                    wind: { name: '风速', data: hourData.map(h => h.wind_speed), color: '#2ecc71', symbol: 'triangle' },
-                    pop: { name: '降水概率', data: hourData.map(h => h.pop), color: '#9b59b6', symbol: 'rect' },
-                    precip: { name: '降水量', data: hourData.map(h => h.precip), color: '#e74c3c', symbol: 'roundRect' }
-                };
-
-                const chartDom = document.getElementById('hourly-chart');
-                const myChart = echarts.init(chartDom);
-
-                const baseOption = {
-                    tooltip: { trigger: 'axis' },
-                    grid: { left: '8%', right: '5%', bottom: '10%', top: '12%', containLabel: true },
-                    xAxis: { type: 'category', data: times, axisLabel: { rotate: 30, interval: 'auto' } },
-                    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#e9f0f9' } } }
-                };
-
-                myChart.setOption({ ...baseOption, series: [{ ...seriesMap.temp, type: 'line', smooth: true }] });
-
-                const buttons = document.querySelectorAll('.chart-btn');
-                buttons.forEach(btn => {
-                    btn.onclick = () => {
-                        buttons.forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        const type = btn.dataset.type;
-                        if (seriesMap[type]) {
-                            myChart.setOption({ series: [{ ...seriesMap[type], type: 'line', smooth: true }] });
-                        }
-                    };
-                });
-
-                window.addEventListener('resize', () => myChart.resize());
-            } else {
-                hourlyCard.style.display = 'none';
-            }
-
-            // 分钟级降水 (横向条)
-            if (data.minutely_precip?.data?.length) {
-                minutelyCard.style.display = 'block';
-                const m = data.minutely_precip;
-                const items = m.data.slice(0, 24).map(p => {
-                    let time = p.time || '';
-                    let tShort = time.includes('T') ? time.split('T')[1]?.slice(0,5) : '--:--';
-                    let precip = p.precip || 0;
-                    let barColor = precip === 0 ? '#c7e9c0' : (precip < 1 ? '#7fcdbb' : (precip < 3 ? '#2c7fb8' : '#253494'));
-                    return { time: tShort, precip, barColor };
-                });
-
-                let timelineHtml = '<div class="minutely-timeline"><div class="minutely-bar-container">';
-                items.forEach(item => {
-                    timelineHtml += `<div class="minute-item">
-                        <span class="minute-time">${item.time}</span>
-                        <div class="minute-bar" style="height:${Math.min(60, 30 + item.precip * 8)}px; background:${item.barColor};"></div>
-                        <span class="minute-value">${item.precip.toFixed(1)}mm</span>
-                    </div>`;
-                });
-                timelineHtml += '</div></div>';
-                minutelyContent.innerHTML = timelineHtml;
-            } else {
-                minutelyCard.style.display = 'none';
-            }
-
-            // 生活指数
-            if (data.life_indices && Object.keys(data.life_indices).length) {
-                indicesCard.style.display = 'block';
-                const nameMap = {
-                    clothing: '👔 穿衣', uv: '☀️ 紫外线', car_wash: '🚗 洗车',
-                    drying: '👕 晾晒', cold_risk: '🤧 感冒', exercise: '🏃 运动',
-                    comfort: '😌 舒适', travel: '✈️ 出行', allergy: '🌿 过敏',air_conditioner: '❄️ 空调指数',fishing: '🎣 钓鱼',sunscreen: '🧴 防晒',mood: '😊 心情',beer: '🍺 啤酒',umbrella: '☔ 雨伞',traffic: '🚦 交通',air_purifier: '💨 空气净化器',pollen: '🌸 花粉扩散'
-                };
-                let idxHtml = '';
-                for (let [key, val] of Object.entries(data.life_indices)) {
-                    if (!val || typeof val !== 'object') continue;
-                    const display = nameMap[key] || key.replace(/_/g, ' ');
-                    idxHtml += `<div class="life-item">
-                        <h4>${display}</h4>
-                        <div><span class="brief">${val.brief || ''}</span> ${val.level || ''}</div>
-                        <div class="advice">💡 ${val.advice || '暂无'}</div>
-                    </div>`;
                 }
-                indicesContainer.innerHTML = idxHtml || '<div class="life-item">暂无指数</div>';
-            } else {
-                indicesCard.style.display = 'none';
             }
         }
+    }
+}
 
-        function createMetric(label, value, sub) {
-            return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div>${sub ? '<div class="sub">'+sub+'</div>' : ''}</div>`;
+// 空白处顶部生成新元素
+function fillEmpty(){
+    for(let x=0;x<COLS;x++){
+        for(let y=0;y<ROWS;y++){
+            if(board[y][x]===null){
+                board[y][x] = randomItem();
+            }
         }
+    }
+}
 
-        fetchBtn.addEventListener('click', fetchWeather);
-        cityInput.addEventListener('keypress', (e) => e.key === 'Enter' && fetchWeather());
-        window.addEventListener('load', fetchWeather);
-    })();
+function sleep(ms){
+    return new Promise(res=>setTimeout(res,ms));
+}
+
+initBoard();
 </script>
 </body>
 </html>
